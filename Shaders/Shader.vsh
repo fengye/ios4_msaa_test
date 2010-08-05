@@ -18,8 +18,6 @@ uniform mat4 rotation;
 void main()
 {
     gl_Position = rotation * position;
-//	gl_Position.x += cos(translate) / 2.0;
-//  gl_Position.y += sin(translate) / 2.0;
 
     colorVarying = color;
 }

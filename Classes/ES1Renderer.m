@@ -8,6 +8,8 @@
 
 #import "ES1Renderer.h"
 
+extern BOOL gMSAAEnabled;
+
 @implementation ES1Renderer
 
 // Create an OpenGL ES 1.1 context
@@ -29,6 +31,13 @@
         glBindFramebufferOES(GL_FRAMEBUFFER_OES, defaultFramebuffer);
         glBindRenderbufferOES(GL_RENDERBUFFER_OES, colorRenderbuffer);
         glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_COLOR_ATTACHMENT0_OES, GL_RENDERBUFFER_OES, colorRenderbuffer);
+		
+		// msaa fb
+		glGenFramebuffersOES(1, &msaaFramebuffer);
+		// msaa color buffer
+		glGenRenderbuffersOES(1, &msaaRenderbuffer);
+		// msaa depth buffer
+		glGenRenderbuffersOES(1, &msaaDepthbuffer);
     }
 
     return self;
@@ -58,17 +67,23 @@
     // This call is redundant, but needed if dealing with multiple contexts.
     [EAGLContext setCurrentContext:context];
 
-    // This application only creates a single default framebuffer which is already bound at this point.
-    // This call is redundant, but needed if dealing with multiple framebuffers.
-    glBindFramebufferOES(GL_FRAMEBUFFER_OES, defaultFramebuffer);
+	// Choose framebuffer if it comes to MSAA
+    if ( gMSAAEnabled )
+	{
+		glBindFramebufferOES(GL_FRAMEBUFFER_OES, msaaFramebuffer);
+	}
+	else {
+		glBindFramebufferOES(GL_FRAMEBUFFER_OES, defaultFramebuffer);
+	}
+	
     glViewport(0, 0, backingWidth, backingHeight);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    glTranslatef(0.0f, (GLfloat)(sinf(transY)/2.0f), 0.0f);
     transY += 0.075f;
+	glRotatef(transY, 0, 0, 1);
 
     glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -79,9 +94,16 @@
     glEnableClientState(GL_COLOR_ARRAY);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	
+	// resolve the final pixels if MSAA enabled
+	if ( gMSAAEnabled )
+	{
+		glBindFramebufferOES(GL_READ_FRAMEBUFFER_APPLE, msaaFramebuffer);
+		glBindFramebufferOES(GL_DRAW_FRAMEBUFFER_APPLE, defaultFramebuffer);
+		glResolveMultisampleFramebufferAPPLE();
+	}
 
-    // This application only creates a single color renderbuffer which is already bound at this point.
-    // This call is redundant, but needed if dealing with multiple renderbuffers.
+    // need to restore colorRenderbuffer if it's MSAA enabled
     glBindRenderbufferOES(GL_RENDERBUFFER_OES, colorRenderbuffer);
     [context presentRenderbuffer:GL_RENDERBUFFER_OES];
 }
@@ -100,6 +122,26 @@
         return NO;
     }
 
+	GLint maxSamplesAllowed;
+	glGetIntegerv(GL_MAX_SAMPLES_APPLE, &maxSamplesAllowed);
+	
+	// operation on msaa fb
+	glBindFramebufferOES(GL_FRAMEBUFFER_OES, msaaFramebuffer);
+	
+	glBindRenderbufferOES(GL_RENDERBUFFER_OES, msaaRenderbuffer);
+	glRenderbufferStorageMultisampleAPPLE(GL_RENDERBUFFER_OES, maxSamplesAllowed, GL_RGBA8_OES, backingWidth, backingHeight);
+	glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_COLOR_ATTACHMENT0_OES, GL_RENDERBUFFER_OES, msaaRenderbuffer);
+	
+	glBindRenderbufferOES(GL_RENDERBUFFER_OES, msaaDepthbuffer);
+	glRenderbufferStorageMultisampleAPPLE(GL_RENDERBUFFER_OES, maxSamplesAllowed, GL_DEPTH_COMPONENT24_OES, backingWidth, backingHeight);
+	glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_DEPTH_ATTACHMENT_OES, GL_RENDERBUFFER_OES, msaaDepthbuffer);
+	
+	if (glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES) != GL_FRAMEBUFFER_COMPLETE_OES)
+    {
+        NSLog(@"Failed to make complete framebuffer object %x", glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES));
+        return NO;
+    }
+	
     return YES;
 }
 
@@ -117,6 +159,23 @@
         glDeleteRenderbuffersOES(1, &colorRenderbuffer);
         colorRenderbuffer = 0;
     }
+	
+	if ( msaaFramebuffer )
+	{
+		glDeleteFramebuffersOES(1, &msaaFramebuffer);
+		msaaFramebuffer = 0;
+	}
+	if ( msaaRenderbuffer )
+	{
+		glDeleteRenderbuffersOES(1, &msaaRenderbuffer);
+		msaaRenderbuffer = 0;
+	}
+	if ( msaaDepthbuffer )
+	{
+		glDeleteRenderbuffersOES(1, &msaaDepthbuffer);
+		msaaDepthbuffer = 0;
+	}
+	
 
     // Tear down context
     if ([EAGLContext currentContext] == context)

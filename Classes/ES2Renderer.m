@@ -89,8 +89,7 @@ enum {
     // This call is redundant, but needed if dealing with multiple contexts.
     [EAGLContext setCurrentContext:context];
 
-    // This application only creates a single default framebuffer which is already bound at this point.
-    // This call is redundant, but needed if dealing with multiple framebuffers.
+    // Choose framebuffer if it comes to MSAA
 	if ( gMSAAEnabled )
 	{
 		glBindFramebuffer(GL_FRAMEBUFFER, msaaFramebuffer);
@@ -147,6 +146,7 @@ enum {
     // Draw
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
+	// resolve the final pixels if MSAA enabled
 	if ( gMSAAEnabled )
 	{
 		glBindFramebuffer(GL_READ_FRAMEBUFFER_APPLE, msaaFramebuffer);
@@ -154,8 +154,7 @@ enum {
 		glResolveMultisampleFramebufferAPPLE();
 	}
 	
-    // This application only creates a single color renderbuffer which is already bound at this point.
-    // This call is redundant, but needed if dealing with multiple renderbuffers.
+    // need to restore colorRenderbuffer if it's MSAA enabled
     glBindRenderbuffer(GL_RENDERBUFFER, colorRenderbuffer);
     [context presentRenderbuffer:GL_RENDERBUFFER];
 }

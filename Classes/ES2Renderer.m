@@ -154,6 +154,11 @@ enum {
 		glResolveMultisampleFramebufferAPPLE();
 	}
 	
+	// discard depth buffer whenever possible, to gain more memory bandwidth.
+	// this is no necessary for MSAA but helps boost performance even in non-MSAA cases.
+	GLenum attachments[] = {GL_DEPTH_ATTACHMENT};
+	glDiscardFramebufferEXT(GL_READ_FRAMEBUFFER_APPLE, 1, attachments);
+	
     // need to restore colorRenderbuffer if it's MSAA enabled
     glBindRenderbuffer(GL_RENDERBUFFER, colorRenderbuffer);
     [context presentRenderbuffer:GL_RENDERBUFFER];

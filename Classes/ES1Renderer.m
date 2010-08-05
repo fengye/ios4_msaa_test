@@ -102,6 +102,11 @@ extern BOOL gMSAAEnabled;
 		glBindFramebufferOES(GL_DRAW_FRAMEBUFFER_APPLE, defaultFramebuffer);
 		glResolveMultisampleFramebufferAPPLE();
 	}
+	
+	// discard depth buffer whenever possible, to gain more memory bandwidth.
+	// this is no necessary for MSAA but helps boost performance even in non-MSAA cases.
+	GLenum attachments[] = {GL_DEPTH_ATTACHMENT_OES};
+	glDiscardFramebufferEXT(GL_READ_FRAMEBUFFER_APPLE, 1, attachments);
 
     // need to restore colorRenderbuffer if it's MSAA enabled
     glBindRenderbufferOES(GL_RENDERBUFFER_OES, colorRenderbuffer);
